@@ -1,0 +1,10 @@
+name: PADESA
+channels:
+  - defaults
+dependencies:
+  - numpy=1.23.3
+  - pandas=2.0.3
+  - pip
+  - python=3.9
+  - pip:
+    - matplotlib==3.6.0
