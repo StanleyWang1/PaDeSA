@@ -4,7 +4,8 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 from scipy.ndimage import zoom
 
-data_dir = 'np_voxelgrids'
+# data_dir = 'np_voxelgrids'
+data_dir = './DATA/sphere_samples/'
 
 def load_and_preprocess_data(directory):
     all_voxels = []
@@ -55,8 +56,8 @@ def discriminator_loss(real_output, fake_output):
 
 # Function to normalize the voxel grids
 def normalize_voxel_grid(voxel_grid):
-   # return voxel_grid * 2 - 1
-    return voxel_grid
+   return voxel_grid * 2 - 1
+    # return voxel_grid
 
 def plot_3d_voxel(voxel_grid, threshold=0):
     voxel_grid = voxel_grid.squeeze()  # Remove axes of length one
@@ -77,11 +78,11 @@ def plot_3d_voxel(voxel_grid, threshold=0):
 
 
 voxel_data_pre = load_and_preprocess_data(data_dir)
-subset_voxel_data = voxel_data_pre[:1]    # subset of data
+subset_voxel_data = voxel_data_pre[0:50]    # subset of data
 voxel_data = normalize_voxel_grid(subset_voxel_data)
 
 # Training loop
-num_epochs = 50
+num_epochs = 5
 batch_size = 10
 
 # Add an extra dimension to voxel data to represent the single channel
@@ -99,8 +100,12 @@ discriminator = build_discriminator()
 
 # Define loss and optimizers
 cross_entropy = tf.keras.losses.BinaryCrossentropy()
-generator_optimizer = tf.keras.optimizers.Adam(1e-4)
-discriminator_optimizer = tf.keras.optimizers.Adam(1e-4)
+## For Intel chip
+# generator_optimizer = tf.keras.optimizers.Adam(1e-4)
+# discriminator_optimizer = tf.keras.optimizers.Adam(1e-4)
+## For M1/M2 Macs
+generator_optimizer = tf.keras.optimizers.legacy.Adam(1e-4)
+discriminator_optimizer = tf.keras.optimizers.legacy.Adam(1e-4)
 
 
 for epoch in range(num_epochs):
@@ -136,6 +141,9 @@ for epoch in range(num_epochs):
 # After training, generate voxel grid and plot
 test_noise = tf.random.normal([1, noise_dim])
 generated_voxel = generator(test_noise, training=False).numpy()
+
+# Save output
+np.save('generated_sphere.npy', generated_voxel)
 
 # Check the shape of the generated voxel
 print("Generated voxel shape:", generated_voxel.shape)
