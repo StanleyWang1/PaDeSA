@@ -19,14 +19,13 @@ def load_and_preprocess_data(directory):
 
 def build_generator(noise_dim=100):
     model = tf.keras.Sequential([
-        tf.keras.layers.Dense(8*8*8*128, activation='relu', input_shape=(noise_dim,)),  # Adjusted units
-        tf.keras.layers.Reshape((8, 8, 8, 128)),  # Adjusted shape
-        tf.keras.layers.Conv3DTranspose(128, (5, 5, 5), strides=(2, 2, 2), padding='same', activation='relu'),
-        tf.keras.layers.Conv3DTranspose(64, (5, 5, 5), strides=(2, 2, 2), padding='same', activation='relu'),
-        tf.keras.layers.Conv3DTranspose(1, (6, 6, 6), strides=(1, 1, 1), padding='valid', activation='tanh')  # Adjusted kernel size
+        tf.keras.layers.Dense(9*9*9*128, activation='relu', input_shape=(noise_dim,)),
+        tf.keras.layers.Reshape((9, 9, 9, 128)),
+        tf.keras.layers.Conv3DTranspose(128, (4, 4, 4), strides=(2, 2, 2), padding='same', activation='relu'),
+        tf.keras.layers.Conv3DTranspose(64, (4, 4, 4), strides=(2, 2, 2), padding='same', activation='relu'),
+        tf.keras.layers.Conv3DTranspose(1, (4, 4, 4), strides=(1, 1, 1), padding='valid', activation='tanh')
     ])
     return model
-
 
 
 
@@ -59,23 +58,25 @@ def normalize_voxel_grid(voxel_grid):
     return voxel_grid * 2 - 1
 
 def plot_3d_voxel(voxel_grid, threshold=0.5):
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
+    voxel_grid = voxel_grid.squeeze()  # Remove axes of length one
 
-    # Create a meshgrid of coordinates (x, y, z) for the voxels
-    x, y, z = np.indices(np.array(voxel_grid.shape) + 1)
-    x, y, z = x[:-1, :-1, :-1], y[:-1, :-1, :-1], z[:-1, :-1, :-1]
+    # Adjusting the shape of the coordinate arrays
+    coord_shape = np.array(voxel_grid.shape) + 1
+    x, y, z = np.indices(coord_shape)
 
     # Voxels is true wherever the voxel grid is above the threshold
     voxels = voxel_grid > threshold
 
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
     # Plot the surface
     ax.voxels(x, y, z, voxels, edgecolor='k')
-
     plt.show()
 
+
 voxel_data_pre = load_and_preprocess_data(data_dir)
-subset_voxel_data = voxel_data_pre[:1]    # subset of data
+subset_voxel_data = voxel_data_pre[:10]    # subset of data
 voxel_data = normalize_voxel_grid(subset_voxel_data)
 
 # Training loop
@@ -132,16 +133,13 @@ for epoch in range(num_epochs):
         generator_optimizer.apply_gradients(zip(gradients_of_generator, generator.trainable_variables))
         discriminator_optimizer.apply_gradients(zip(gradients_of_discriminator, discriminator.trainable_variables))
 
-# After training is complete, generate and plot voxel grid
+
+# After training, generate voxel grid and plot
 test_noise = tf.random.normal([1, noise_dim])
 generated_voxel = generator(test_noise, training=False).numpy()
+
+# Check the shape of the generated voxel
 print("Generated voxel shape:", generated_voxel.shape)
 
-# If the shape is correct, reshape it
-if generated_voxel.shape == (1, 50, 50, 50, 1):
-    generated_voxel_reshaped = generated_voxel.reshape((50, 50, 50))
-    plot_3d_voxel(generated_voxel_reshaped, threshold=0.5)
-else:
-    print("Incorrect output shape from generator")
-generated_voxel_reshaped = generated_voxel.reshape((50, 50, 50))
-plot_3d_voxel(generated_voxel_reshaped, threshold=0.5)
+# Plot the generated voxel grid regardless of its shape
+plot_3d_voxel(generated_voxel, threshold=0.5)
