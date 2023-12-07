@@ -4,7 +4,7 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 from scipy.ndimage import zoom
 
-data_dir = 'sphere_samples'
+data_dir = './DATA/sphere_samples'
 
 def load_and_preprocess_data(directory):
     all_voxels = []
@@ -75,12 +75,11 @@ def plot_3d_voxel(voxel_grid, threshold):
 
 
 voxel_data_pre = load_and_preprocess_data(data_dir)
-voxel_data = voxel_data_pre[:30]    # subset of data, use voxel_data_pre[:number of subset]
-
+voxel_data = voxel_data_pre[:50]    # subset of data, use voxel_data_pre[:number of subset]
 
 # Training loop
-num_epochs = 4
-batch_size = 5
+num_epochs = 10
+batch_size = 10
 
 # Add an extra dimension to voxel data to represent the single channel
 voxel_data = np.expand_dims(voxel_data, axis=-1)
@@ -97,15 +96,15 @@ discriminator = build_discriminator()
 
 # Define loss and optimizers
 cross_entropy = tf.keras.losses.BinaryCrossentropy()
-generator_optimizer = tf.keras.optimizers.Adam(1e-4)
-discriminator_optimizer = tf.keras.optimizers.Adam(1e-4)
+generator_optimizer = tf.keras.optimizers.legacy.Adam(1e-4)
+discriminator_optimizer = tf.keras.optimizers.legacy.Adam(1e-4)
 
 
 for epoch in range(num_epochs):
     print(f"Epoch {epoch+1}/{num_epochs}")
     for step, voxel_batch in enumerate(train_dataset):
-        print(f"  Training step {step+1}")
-        print(voxel_batch.shape)
+        # print(f"  Training step {step+1}")
+        # print(voxel_batch.shape)
         # Start of a batch, so we deal with the gradient tape
         with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
             # Generate noise for the generator
@@ -135,6 +134,9 @@ for epoch in range(num_epochs):
 # After training, generate voxel grid and plot
 test_noise = tf.random.normal([1, noise_dim])
 generated_voxel = generator(test_noise, training=False).numpy()
+
+# Save Output
+np.save('./LOGS/generated_sphere.npy', generated_voxel)
 
 # Check the shape and range of the generated voxel
 print("Generated voxel shape:", generated_voxel.shape)
