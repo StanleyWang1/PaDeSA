@@ -4,8 +4,7 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 from scipy.ndimage import zoom
 
-# data_dir = 'np_voxelgrids'
-data_dir = './DATA/sphere_samples/'
+data_dir = 'sphere_samples'
 
 def load_and_preprocess_data(directory):
     all_voxels = []
@@ -20,13 +19,16 @@ def load_and_preprocess_data(directory):
 
 def build_generator(noise_dim=100):
     model = tf.keras.Sequential([
-        tf.keras.layers.Dense(9*9*9*128, activation='relu', input_shape=(noise_dim,)),
-        tf.keras.layers.Reshape((9, 9, 9, 128)),
-        tf.keras.layers.Conv3DTranspose(128, (4, 4, 4), strides=(2, 2, 2), padding='same', activation='relu'),
-        tf.keras.layers.Conv3DTranspose(64, (4, 4, 4), strides=(2, 2, 2), padding='same', activation='relu'),
-        tf.keras.layers.Conv3DTranspose(1, (4, 4, 4), strides=(1, 1, 1), padding='valid', activation='tanh')
+        tf.keras.layers.Dense(11*11*11*128, activation='relu', input_shape=(noise_dim,)),
+        tf.keras.layers.Reshape((11, 11, 11, 128)),
+        tf.keras.layers.Conv3DTranspose(128, (4, 4, 4), strides=(2, 2, 2), padding='valid', activation='relu'),
+        tf.keras.layers.Conv3DTranspose(64, (4, 4, 4), strides=(2, 2, 2), padding='valid', activation='relu'),
+        # Minor adjustment to the last layer
+        tf.keras.layers.Conv3DTranspose(1, (2, 2, 2), strides=(1, 1, 1), padding='same', activation='tanh')
     ])
     return model
+
+
 
 
 
@@ -56,34 +58,29 @@ def discriminator_loss(real_output, fake_output):
 
 # Function to normalize the voxel grids
 def normalize_voxel_grid(voxel_grid):
-   return voxel_grid * 2 - 1
-    # return voxel_grid
+    #return voxel_grid
+    return voxel_grid * 2 - 1
 
-def plot_3d_voxel(voxel_grid, threshold=0):
+
+def plot_3d_voxel(voxel_grid, threshold):
     voxel_grid = voxel_grid.squeeze()  # Remove axes of length one
 
-    # Adjusting the shape of the coordinate arrays
-    coord_shape = np.array(voxel_grid.shape) + 1
-    x, y, z = np.indices(coord_shape)
-
-    # Voxels is true wherever the voxel grid is above the threshold
-    voxels = voxel_grid > threshold
+    x, y, z = np.indices(np.array(voxel_grid.shape) + 1)
+    voxels = voxel_grid > threshold  # Adjust threshold as needed
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
-
-    # Plot the surface
     ax.voxels(x, y, z, voxels, edgecolor='k')
     plt.show()
 
 
 voxel_data_pre = load_and_preprocess_data(data_dir)
-subset_voxel_data = voxel_data_pre[0:50]    # subset of data
-voxel_data = normalize_voxel_grid(subset_voxel_data)
+voxel_data = voxel_data_pre[:30]    # subset of data, use voxel_data_pre[:number of subset]
+
 
 # Training loop
-num_epochs = 5
-batch_size = 10
+num_epochs = 4
+batch_size = 5
 
 # Add an extra dimension to voxel data to represent the single channel
 voxel_data = np.expand_dims(voxel_data, axis=-1)
@@ -100,18 +97,15 @@ discriminator = build_discriminator()
 
 # Define loss and optimizers
 cross_entropy = tf.keras.losses.BinaryCrossentropy()
-## For Intel chip
-# generator_optimizer = tf.keras.optimizers.Adam(1e-4)
-# discriminator_optimizer = tf.keras.optimizers.Adam(1e-4)
-## For M1/M2 Macs
-generator_optimizer = tf.keras.optimizers.legacy.Adam(1e-4)
-discriminator_optimizer = tf.keras.optimizers.legacy.Adam(1e-4)
+generator_optimizer = tf.keras.optimizers.Adam(1e-4)
+discriminator_optimizer = tf.keras.optimizers.Adam(1e-4)
 
 
 for epoch in range(num_epochs):
     print(f"Epoch {epoch+1}/{num_epochs}")
     for step, voxel_batch in enumerate(train_dataset):
         print(f"  Training step {step+1}")
+        print(voxel_batch.shape)
         # Start of a batch, so we deal with the gradient tape
         with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
             # Generate noise for the generator
@@ -142,11 +136,9 @@ for epoch in range(num_epochs):
 test_noise = tf.random.normal([1, noise_dim])
 generated_voxel = generator(test_noise, training=False).numpy()
 
-# Save output
-np.save('generated_sphere.npy', generated_voxel)
-
-# Check the shape of the generated voxel
+# Check the shape and range of the generated voxel
 print("Generated voxel shape:", generated_voxel.shape)
+print("Voxel value range:", generated_voxel.min(), generated_voxel.max())
 
 # Plot the generated voxel grid regardless of its shape
-plot_3d_voxel(generated_voxel, threshold=0.5)
+plot_3d_voxel(generated_voxel, threshold=0)
