@@ -55,9 +55,10 @@ def discriminator_loss(real_output, fake_output):
 
 # Function to normalize the voxel grids
 def normalize_voxel_grid(voxel_grid):
-    return voxel_grid * 2 - 1
+   # return voxel_grid * 2 - 1
+    return voxel_grid
 
-def plot_3d_voxel(voxel_grid, threshold=0.5):
+def plot_3d_voxel(voxel_grid, threshold=0):
     voxel_grid = voxel_grid.squeeze()  # Remove axes of length one
 
     # Adjusting the shape of the coordinate arrays
@@ -76,12 +77,12 @@ def plot_3d_voxel(voxel_grid, threshold=0.5):
 
 
 voxel_data_pre = load_and_preprocess_data(data_dir)
-subset_voxel_data = voxel_data_pre[:10]    # subset of data
+subset_voxel_data = voxel_data_pre[:1]    # subset of data
 voxel_data = normalize_voxel_grid(subset_voxel_data)
 
 # Training loop
 num_epochs = 50
-batch_size = 1
+batch_size = 10
 
 # Add an extra dimension to voxel data to represent the single channel
 voxel_data = np.expand_dims(voxel_data, axis=-1)
@@ -106,24 +107,22 @@ for epoch in range(num_epochs):
     print(f"Epoch {epoch+1}/{num_epochs}")
     for step, voxel_batch in enumerate(train_dataset):
         print(f"  Training step {step+1}")
-        # For each batch in the dataset
-        for voxel_batch in train_dataset:
-            # Start of a batch, so we deal with the gradient tape
-            with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
-                # Generate noise for the generator
-                noise = tf.random.normal([batch_size, noise_dim])
+        # Start of a batch, so we deal with the gradient tape
+        with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
+            # Generate noise for the generator
+            noise = tf.random.normal([batch_size, noise_dim])
 
-                # Generate fake images using the noise
-                generated_voxels = generator(noise, training=True)
+            # Generate fake images using the noise
+            generated_voxels = generator(noise, training=True)
 
-                # The discriminator's opinion on the real and fake images
-                real_output = discriminator(voxel_batch, training=True)
-                fake_output = discriminator(generated_voxels, training=True)
+            # The discriminator's opinion on the real and fake images
+            real_output = discriminator(voxel_batch, training=True)
+            fake_output = discriminator(generated_voxels, training=True)
 
-                # Calculate the generator and discriminator loss
-                gen_loss = generator_loss(fake_output)
-                disc_loss = discriminator_loss(real_output, fake_output)
-                print(f"    Generator loss: {gen_loss.numpy()}, Discriminator loss: {disc_loss.numpy()}")
+            # Calculate the generator and discriminator loss
+            gen_loss = generator_loss(fake_output)
+            disc_loss = discriminator_loss(real_output, fake_output)
+            print(f"    Generator loss: {gen_loss.numpy()}, Discriminator loss: {disc_loss.numpy()}")
 
         # Calculate the gradients for both generator and discriminator
         gradients_of_generator = gen_tape.gradient(gen_loss, generator.trainable_variables)
