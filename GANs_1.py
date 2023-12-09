@@ -4,7 +4,7 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 from scipy.ndimage import zoom
 
-data_dir = 'sphere_samples'
+data_dir = './DATA/sphere_samples'
 
 def load_and_preprocess_data(directory):
     all_voxels = []
@@ -21,23 +21,23 @@ def build_generator(noise_dim=100):
     model = tf.keras.Sequential([
         # Foundation for 11x11x11x128 voxel grid
         tf.keras.layers.Dense(11 * 11 * 11 * 256, use_bias=False, input_shape=(noise_dim,)),
-        tf.keras.layers.BatchNormalization(),
+        # tf.keras.layers.BatchNormalization(),
         tf.keras.layers.LeakyReLU(),
         tf.keras.layers.Reshape((11, 11, 11, 256)),
 
         # UpSampling to 22x22x22
         tf.keras.layers.Conv3DTranspose(256, (4, 4, 4), strides=(2, 2, 2), padding='valid', use_bias=False),
-        tf.keras.layers.BatchNormalization(),
+        # tf.keras.layers.BatchNormalization(),
         tf.keras.layers.LeakyReLU(),
 
         # UpSampling to 44x44x44
         tf.keras.layers.Conv3DTranspose(128, (4, 4, 4), strides=(2, 2, 2), padding='valid', use_bias=False),
-        tf.keras.layers.BatchNormalization(),
+        # tf.keras.layers.BatchNormalization(),
         tf.keras.layers.LeakyReLU(),
 
         # Adjust the layer to get to the desired output shape (50x50x50)
         tf.keras.layers.Conv3DTranspose(64, (4, 4, 4), strides=(1, 1, 1), padding='valid', use_bias=False),
-        tf.keras.layers.BatchNormalization(),
+        # tf.keras.layers.BatchNormalization(),
         tf.keras.layers.LeakyReLU(),
 
         # Final convolution to get a single channel output
@@ -91,12 +91,13 @@ def plot_3d_voxel(voxel_grid, threshold):
 
 
 voxel_data_pre = load_and_preprocess_data(data_dir)
-voxel_data = voxel_data_pre[:1]    # subset of data, use voxel_data_pre[:number of subset]
+print(voxel_data_pre.shape)
+voxel_data = voxel_data_pre[:10]    # subset of data, use voxel_data_pre[:number of subset]
 
 
 # Training loop
-num_epochs = 1
-batch_size = 1
+num_epochs = 5
+batch_size = 5
 
 # Add an extra dimension to voxel data to represent the single channel
 voxel_data = np.expand_dims(voxel_data, axis=-1)
@@ -113,8 +114,12 @@ discriminator = build_discriminator()
 
 # Define loss and optimizers
 cross_entropy = tf.keras.losses.BinaryCrossentropy()
-generator_optimizer = tf.keras.optimizers.Adam(1e-4)
-discriminator_optimizer = tf.keras.optimizers.Adam(1e-4)
+# M1/M2 Chips
+generator_optimizer = tf.keras.optimizers.legacy.Adam(1e-4)
+discriminator_optimizer = tf.keras.optimizers.legacy.Adam(1e-4)
+# Intel Chips
+# generator_optimizer = tf.keras.optimizers.Adam(1e-4)
+# discriminator_optimizer = tf.keras.optimizers.Adam(1e-4)
 
 
 for epoch in range(num_epochs):
@@ -151,6 +156,9 @@ for epoch in range(num_epochs):
 # After training, generate voxel grid and plot
 test_noise = tf.random.normal([1, noise_dim])
 generated_voxel = generator(test_noise, training=False).numpy()
+
+# Save final generator output
+np.save('NEW_GAN_TEST.npy', generated_voxel)
 
 # Check the shape and range of the generated voxel
 print("Generated voxel shape:", generated_voxel.shape)

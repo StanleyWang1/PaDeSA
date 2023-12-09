@@ -4,7 +4,7 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 from scipy.ndimage import zoom
 
-data_dir = './DATA/sphere_samples'
+data_dir = './DATA/cylinder_samples'
 
 def load_and_preprocess_data(directory):
     all_voxels = []
@@ -19,25 +19,36 @@ def load_and_preprocess_data(directory):
 
 def build_generator(noise_dim=100):
     model = tf.keras.Sequential([
-        tf.keras.layers.Dense(11*11*11*128, activation='relu', input_shape=(noise_dim,)),
-        tf.keras.layers.Reshape((11, 11, 11, 128)),
-        tf.keras.layers.Conv3DTranspose(128, (4, 4, 4), strides=(2, 2, 2), padding='valid', activation='relu'),
-        tf.keras.layers.Conv3DTranspose(64, (4, 4, 4), strides=(2, 2, 2), padding='valid', activation='relu'),
+        tf.keras.layers.Dense(3*3*3*64, activation='relu', input_shape=(noise_dim,)),
+        # tf.keras.layers.BatchNormalization(),
+        tf.keras.layers.LeakyReLU(),
+
+        tf.keras.layers.Reshape((3, 3, 3, 64)),
+        tf.keras.layers.Conv3DTranspose(64, (3, 3, 3), padding='valid', activation='relu'),
+        # tf.keras.layers.BatchNormalization(),
+        tf.keras.layers.LeakyReLU(),
+        
+        tf.keras.layers.Conv3DTranspose(64, (3, 3, 3), padding='valid', activation='relu'),
+        # tf.keras.layers.BatchNormalization(),
+        tf.keras.layers.LeakyReLU(),
+        
         # Minor adjustment to the last layer
-        tf.keras.layers.Conv3DTranspose(1, (2, 2, 2), strides=(1, 1, 1), padding='same', activation='tanh')
+        tf.keras.layers.Conv3DTranspose(1, (3, 3, 3), strides=(1, 1, 1), padding='same', activation='sigmoid')
     ])
     return model
-
-
-
-
+    
 
 def build_discriminator():
     model = tf.keras.Sequential([
-        tf.keras.layers.Conv3D(64, (4, 4, 4), strides=(2, 2, 2), padding='same', input_shape=[None, None, None, 1]),
+        tf.keras.layers.Conv3D(64, (3, 3, 3), padding='same', input_shape=[None, None, None, 1]),
         tf.keras.layers.LeakyReLU(),
-        tf.keras.layers.Conv3D(128, (4, 4, 4), strides=(2, 2, 2), padding='same'),
+        tf.keras.layers.Dropout(0.3),
+        tf.keras.layers.Conv3D(64, (3, 3, 3), padding='same'),
         tf.keras.layers.LeakyReLU(),
+        tf.keras.layers.Dropout(0.3),
+        tf.keras.layers.Conv3D(64, (3, 3, 3), padding='same'),
+        tf.keras.layers.LeakyReLU(),
+        tf.keras.layers.Dropout(0.3),
         # Add a global average pooling layer
         tf.keras.layers.GlobalAveragePooling3D(),
         tf.keras.layers.Dense(1, activation='sigmoid')
@@ -75,11 +86,11 @@ def plot_3d_voxel(voxel_grid, threshold):
 
 
 voxel_data_pre = load_and_preprocess_data(data_dir)
-voxel_data = voxel_data_pre[:50]    # subset of data, use voxel_data_pre[:number of subset]
+voxel_data = voxel_data_pre[:1]    # subset of data, use voxel_data_pre[:number of subset]
 
 # Training loop
-num_epochs = 10
-batch_size = 10
+num_epochs = 1000
+batch_size = 1
 
 # Add an extra dimension to voxel data to represent the single channel
 voxel_data = np.expand_dims(voxel_data, axis=-1)
@@ -96,8 +107,8 @@ discriminator = build_discriminator()
 
 # Define loss and optimizers
 cross_entropy = tf.keras.losses.BinaryCrossentropy()
-generator_optimizer = tf.keras.optimizers.legacy.Adam(1e-4)
-discriminator_optimizer = tf.keras.optimizers.legacy.Adam(1e-4)
+generator_optimizer = tf.keras.optimizers.legacy.Adam(0.00)
+discriminator_optimizer = tf.keras.optimizers.legacy.Adam(0.001)
 
 
 for epoch in range(num_epochs):
@@ -120,8 +131,8 @@ for epoch in range(num_epochs):
             # Calculate the generator and discriminator loss
             gen_loss = generator_loss(fake_output)
             disc_loss = discriminator_loss(real_output, fake_output)
-            print(f"    Generator loss: {gen_loss.numpy()}, Discriminator loss: {disc_loss.numpy()}")
-
+            # print(f"    Generator loss: {gen_loss.numpy()}, Discriminator loss: {disc_loss.numpy()}")
+    
         # Calculate the gradients for both generator and discriminator
         gradients_of_generator = gen_tape.gradient(gen_loss, generator.trainable_variables)
         gradients_of_discriminator = disc_tape.gradient(disc_loss, discriminator.trainable_variables)
@@ -129,14 +140,14 @@ for epoch in range(num_epochs):
         # Apply the gradients to the optimizer
         generator_optimizer.apply_gradients(zip(gradients_of_generator, generator.trainable_variables))
         discriminator_optimizer.apply_gradients(zip(gradients_of_discriminator, discriminator.trainable_variables))
-
+    print(f"    Generator loss: {gen_loss.numpy()}, Discriminator loss: {disc_loss.numpy()}")
 
 # After training, generate voxel grid and plot
 test_noise = tf.random.normal([1, noise_dim])
 generated_voxel = generator(test_noise, training=False).numpy()
 
 # Save Output
-np.save('./LOGS/generated_sphere.npy', generated_voxel)
+np.save(f'./LOGS/ap01_epoch{num_epochs}.npy', generated_voxel)
 
 # Check the shape and range of the generated voxel
 print("Generated voxel shape:", generated_voxel.shape)
